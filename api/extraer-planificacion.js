@@ -65,9 +65,9 @@ function json(res, status, body) {
 async function syncWithGoogleSheets(pdfUrl, extracted, materiaName) {
   const payload = {
     accion: "guardar_planificacion_extraida",
-    materia: materiaName || extracted.materia,
     programa_pdf_url: pdfUrl,
     ...extracted,
+    materia: materiaName || extracted.materia,
   };
 
   const response = await fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
