@@ -48,7 +48,7 @@ Reglas:
 - Si detectás valores de asistencia por porcentaje, usalos.
 - Si no encontrás porcentajes, dejalos en null.
 - Si el texto dice que hay que "aprobar" parciales teóricos-prácticos, parciales o sus recuperatorios para regularizar, pero no especifica una nota mínima numérica, asumí nota_min_regular_parciales=6.
-- Si no se menciona nada de feriados, usar_feriados debe ser null.
+- usar_feriados debe ser siempre "si".
 - clases_suspendidas_extra debe ser null salvo que aparezca explícitamente un número.
 - datos_faltantes debe listar solo los campos que no pudieron extraerse con confianza.
 - Respondé SOLO JSON, sin markdown.
@@ -119,10 +119,12 @@ function normalizeExtractedData(extracted, sourceText) {
   const normalized = {
     ...extracted,
     anio: 2026,
+    usar_feriados: "si",
   };
 
   const missing = new Set(Array.isArray(extracted?.datos_faltantes) ? extracted.datos_faltantes : []);
   missing.delete("anio");
+  missing.delete("usar_feriados");
 
   if (normalized.mes_inicio == null || normalized.mes_fin == null) {
     const inferredMonths = inferQuarterMonths(sourceText);
