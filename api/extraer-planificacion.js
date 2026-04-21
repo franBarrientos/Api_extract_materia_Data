@@ -44,7 +44,7 @@ Reglas:
 - Si detectás primer cuatrimestre o equivalente, mes_inicio=3 y mes_fin=6.
 - Si detectás segundo cuatrimestre o equivalente, mes_inicio=8 y mes_fin=11.
 - Si el texto menciona meses concretos de inicio/fin, priorizá esos meses explícitos sobre la inferencia por cuatrimestre.
-- Si no encontrás días de cursado con suficiente evidencia, devolvé null en dias_cursado.
+- Si no encontrás días de cursado con suficiente evidencia, usá "1,3".
 - Si detectás valores de asistencia por porcentaje, usalos.
 - Si no encontrás porcentajes, dejalos en null.
 - Si el texto dice que hay que "aprobar" parciales teóricos-prácticos, parciales o sus recuperatorios para regularizar, pero no especifica una nota mínima numérica, asumí nota_min_regular_parciales=6.
@@ -119,6 +119,10 @@ function normalizeExtractedData(extracted, sourceText) {
   const normalized = {
     ...extracted,
     anio: 2026,
+    dias_cursado:
+      typeof extracted?.dias_cursado === "string" && extracted.dias_cursado.trim() !== ""
+        ? extracted.dias_cursado
+        : "1,3",
     usar_feriados: "si",
     clases_suspendidas_extra:
       extracted?.clases_suspendidas_extra == null ? 0 : extracted.clases_suspendidas_extra,
@@ -126,6 +130,7 @@ function normalizeExtractedData(extracted, sourceText) {
 
   const missing = new Set(Array.isArray(extracted?.datos_faltantes) ? extracted.datos_faltantes : []);
   missing.delete("anio");
+  missing.delete("dias_cursado");
   missing.delete("usar_feriados");
   missing.delete("clases_suspendidas_extra");
 
@@ -140,10 +145,6 @@ function normalizeExtractedData(extracted, sourceText) {
   if (normalized.mes_inicio != null && normalized.mes_fin != null) {
     missing.delete("mes_inicio");
     missing.delete("mes_fin");
-  }
-
-  if (typeof normalized.dias_cursado === "string" && normalized.dias_cursado.trim() !== "") {
-    missing.delete("dias_cursado");
   }
 
   if (normalized.nota_min_regular_parciales == null) {
