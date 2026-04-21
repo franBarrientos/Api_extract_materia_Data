@@ -52,7 +52,8 @@ POST /api/extraer-planificacion
 
 ```json
 {
-  "pdf_url": "https://s3.typebotstorage.com/public/tmp/typebots/.../archivo.pdf"
+  "pdf_url": "https://s3.typebotstorage.com/public/tmp/typebots/.../archivo.pdf",
+  "materia_name": "Inteligencia Artificial"
 }
 ```
 
@@ -62,6 +63,7 @@ POST /api/extraer-planificacion
 {
   "ok": true,
   "pdf_url": "https://...",
+  "materia_name": "Inteligencia Artificial",
   "extracted": {
     "materia": "Inteligencia Artificial",
     "anio": 2026,
@@ -128,7 +130,8 @@ En el bloque `HTTP Request`:
 
 ```json
 {
-  "pdf_url": "{{programa_pdf_url}}"
+  "pdf_url": "{{programa_pdf_url}}",
+  "materia_name": "{{materia}}"
 }
 ```
 

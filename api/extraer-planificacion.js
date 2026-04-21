@@ -62,10 +62,10 @@ function json(res, status, body) {
   res.send(JSON.stringify(body));
 }
 
-async function syncWithGoogleSheets(pdfUrl, extracted) {
+async function syncWithGoogleSheets(pdfUrl, extracted, materiaName) {
   const payload = {
     accion: "guardar_planificacion_extraida",
-    materia: extracted.materia,
+    materia: materiaName || extracted.materia,
     programa_pdf_url: pdfUrl,
     ...extracted,
   };
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { pdf_url: pdfUrl } = req.body || {};
+    const { pdf_url: pdfUrl, materia_name: materiaName } = req.body || {};
 
     if (!process.env.OPENAI_API_KEY) {
       return json(res, 500, {
@@ -166,7 +166,7 @@ export default async function handler(req, res) {
 
     let googleSheetsSync = null;
     try {
-      googleSheetsSync = await syncWithGoogleSheets(pdfUrl, extracted);
+      googleSheetsSync = await syncWithGoogleSheets(pdfUrl, extracted, materiaName);
     } catch (error) {
       googleSheetsSync = {
         ok: false,
@@ -181,6 +181,7 @@ export default async function handler(req, res) {
     return json(res, 200, {
       ok: true,
       pdf_url: pdfUrl,
+      materia_name: materiaName || null,
       extracted,
       google_sheets_sync: googleSheetsSync,
       debug: {
