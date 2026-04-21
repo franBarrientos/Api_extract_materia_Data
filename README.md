@@ -6,7 +6,8 @@ Backend serverless para Vercel que:
 2. descarga el PDF
 3. extrae su texto
 4. llama a OpenAI
-5. devuelve un JSON estructurado con los datos de planificación
+5. intenta sincronizar los datos con Google Sheets
+6. devuelve un JSON estructurado con los datos de planificación
 
 ## Requisitos
 
@@ -26,6 +27,7 @@ En Vercel configurá:
 
 ```bash
 OPENAI_API_KEY=tu_api_key
+GOOGLE_SHEETS_WEBHOOK_URL=https://script.google.com/macros/s/...
 ```
 
 ## Desarrollo local
@@ -79,9 +81,34 @@ POST /api/extraer-planificacion
     "usar_feriados": null,
     "clases_suspendidas_extra": null,
     "datos_faltantes": []
+  },
+  "google_sheets_sync": {
+    "ok": true,
+    "status": 200,
+    "data": {
+      "ok": true
+    }
   }
 }
 ```
+
+## Apps Script
+
+El endpoint intenta hacer un `POST` al webhook de Apps Script con esta acción:
+
+```json
+{
+  "accion": "guardar_planificacion_extraida"
+}
+```
+
+Tu Apps Script tiene que soportar esa acción para:
+
+- crear o buscar la materia
+- guardar `programa_pdf_url`
+- guardar los campos extraídos
+
+Si esa acción todavía no existe, el endpoint igual devuelve `extracted`, pero `google_sheets_sync` va a mostrar el error del Apps Script.
 
 ## Cómo conectarlo a Typebot
 

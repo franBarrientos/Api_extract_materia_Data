@@ -5,6 +5,10 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const GOOGLE_SHEETS_WEBHOOK_URL =
+  process.env.GOOGLE_SHEETS_WEBHOOK_URL ||
+  "https://script.google.com/macros/s/AKfycbwk3Cf-kgsioXdcWtewHMNxB4cJj_rkCTFZK4nuEFBF4QOgf_o-Eqm8l3VarVF5rlzi/exec";
+
 const SYSTEM_PROMPT = `
 Sos un extractor académico. Recibís el texto de un programa/planificación de una materia universitaria.
 
@@ -56,6 +60,39 @@ ${text}
 function json(res, status, body) {
   res.status(status).setHeader("Content-Type", "application/json");
   res.send(JSON.stringify(body));
+}
+
+async function syncWithGoogleSheets(pdfUrl, extracted) {
+  const payload = {
+    accion: "guardar_planificacion_extraida",
+    materia: extracted.materia,
+    programa_pdf_url: pdfUrl,
+    ...extracted,
+  };
+
+  const response = await fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const rawText = await response.text();
+
+  let data = null;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    data = { raw: rawText };
+  }
+
+  return {
+    status: response.status,
+    ok: response.ok,
+    data,
+    payload,
+  };
 }
 
 export default async function handler(req, res) {
@@ -127,10 +164,25 @@ export default async function handler(req, res) {
       });
     }
 
+    let googleSheetsSync = null;
+    try {
+      googleSheetsSync = await syncWithGoogleSheets(pdfUrl, extracted);
+    } catch (error) {
+      googleSheetsSync = {
+        ok: false,
+        status: 500,
+        data: {
+          ok: false,
+          error: error.message || "No se pudo sincronizar con Google Sheets.",
+        },
+      };
+    }
+
     return json(res, 200, {
       ok: true,
       pdf_url: pdfUrl,
       extracted,
+      google_sheets_sync: googleSheetsSync,
       debug: {
         extracted_text_chars: text.length,
         extracted_text_preview: text.slice(0, 1000),
