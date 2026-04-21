@@ -35,11 +35,16 @@ Debés devolver SOLO JSON válido con esta estructura exacta:
 }
 
 Reglas:
-- No inventes datos.
-- Si un valor no aparece claramente, devolvé null.
+- anio debe ser siempre 2026.
 - "dias_cursado" debe quedar como string con números de día de semana separados por coma:
   0=domingo, 1=lunes, 2=martes, 3=miércoles, 4=jueves, 5=viernes, 6=sábado.
 - Si detectás texto tipo "lunes y miércoles", devolvé "1,3".
+- Buscá activamente los días de cursado en el texto. Si aparecen expresiones como "lunes", "martes", "miércoles", "jueves", "viernes" o combinaciones, convertí eso a números separados por coma.
+- Buscá activamente si la materia corresponde a "primer cuatrimestre", "1er cuatrimestre", "primer semestre", "segundo cuatrimestre", "2do cuatrimestre" o equivalentes.
+- Si detectás primer cuatrimestre o equivalente, mes_inicio=3 y mes_fin=6.
+- Si detectás segundo cuatrimestre o equivalente, mes_inicio=8 y mes_fin=11.
+- Si el texto menciona meses concretos de inicio/fin, priorizá esos meses explícitos sobre la inferencia por cuatrimestre.
+- Si no encontrás días de cursado con suficiente evidencia, devolvé null en dias_cursado.
 - Si detectás valores de asistencia por porcentaje, usalos.
 - Si no encontrás porcentajes, dejalos en null.
 - Si no se menciona nada de feriados, usar_feriados debe ser null.
@@ -60,6 +65,61 @@ ${text}
 function json(res, status, body) {
   res.status(status).setHeader("Content-Type", "application/json");
   res.send(JSON.stringify(body));
+}
+
+function inferQuarterMonths(text) {
+  const normalizedText = String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (
+    /\b(1er|primer|primero)\s+cuatrimestre\b/.test(normalizedText) ||
+    /\bprimer\s+semestre\b/.test(normalizedText)
+  ) {
+    return { mes_inicio: 3, mes_fin: 6 };
+  }
+
+  if (
+    /\b(2do|segundo)\s+cuatrimestre\b/.test(normalizedText) ||
+    /\bsegundo\s+semestre\b/.test(normalizedText)
+  ) {
+    return { mes_inicio: 8, mes_fin: 11 };
+  }
+
+  return null;
+}
+
+function normalizeExtractedData(extracted, sourceText) {
+  const normalized = {
+    ...extracted,
+    anio: 2026,
+  };
+
+  const missing = new Set(Array.isArray(extracted?.datos_faltantes) ? extracted.datos_faltantes : []);
+  missing.delete("anio");
+
+  if (normalized.mes_inicio == null || normalized.mes_fin == null) {
+    const inferredMonths = inferQuarterMonths(sourceText);
+    if (inferredMonths) {
+      if (normalized.mes_inicio == null) normalized.mes_inicio = inferredMonths.mes_inicio;
+      if (normalized.mes_fin == null) normalized.mes_fin = inferredMonths.mes_fin;
+    }
+  }
+
+  if (normalized.mes_inicio != null && normalized.mes_fin != null) {
+    missing.delete("mes_inicio");
+    missing.delete("mes_fin");
+  }
+
+  if (typeof normalized.dias_cursado === "string" && normalized.dias_cursado.trim() !== "") {
+    missing.delete("dias_cursado");
+  }
+
+  return {
+    ...normalized,
+    datos_faltantes: Array.from(missing),
+  };
 }
 
 async function syncWithGoogleSheets(pdfUrl, extracted, materiaName) {
@@ -163,6 +223,8 @@ export default async function handler(req, res) {
         raw: outputText,
       });
     }
+
+    extracted = normalizeExtractedData(extracted, text);
 
     let googleSheetsSync = null;
     try {
