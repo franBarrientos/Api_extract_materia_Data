@@ -47,6 +47,7 @@ Reglas:
 - Si no encontrás días de cursado con suficiente evidencia, devolvé null en dias_cursado.
 - Si detectás valores de asistencia por porcentaje, usalos.
 - Si no encontrás porcentajes, dejalos en null.
+- Si el texto dice que hay que "aprobar" parciales teóricos-prácticos, parciales o sus recuperatorios para regularizar, pero no especifica una nota mínima numérica, asumí nota_min_regular_parciales=6.
 - Si no se menciona nada de feriados, usar_feriados debe ser null.
 - clases_suspendidas_extra debe ser null salvo que aparezca explícitamente un número.
 - datos_faltantes debe listar solo los campos que no pudieron extraerse con confianza.
@@ -90,6 +91,30 @@ function inferQuarterMonths(text) {
   return null;
 }
 
+function inferRegularParcialMinimum(text) {
+  const normalizedText = String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const mentionsAprobarParciales =
+    /aprobar\s+.*parcial/.test(normalizedText) ||
+    /aprobar\s+dos\s+parciales/.test(normalizedText) ||
+    /parciales?.*recuperatorios?/.test(normalizedText) ||
+    /recuperatorios?.*parciales?/.test(normalizedText);
+
+  const hasExplicitNumericRule =
+    /nota\s+minima/.test(normalizedText) ||
+    /calificacion\s+minima/.test(normalizedText) ||
+    /\b[45678910]+\b\s*\(?\s*(seis|siete|ocho|nueve|diez)?\s*\)?/.test(normalizedText);
+
+  if (mentionsAprobarParciales && !hasExplicitNumericRule) {
+    return 6;
+  }
+
+  return null;
+}
+
 function normalizeExtractedData(extracted, sourceText) {
   const normalized = {
     ...extracted,
@@ -114,6 +139,14 @@ function normalizeExtractedData(extracted, sourceText) {
 
   if (typeof normalized.dias_cursado === "string" && normalized.dias_cursado.trim() !== "") {
     missing.delete("dias_cursado");
+  }
+
+  if (normalized.nota_min_regular_parciales == null) {
+    const inferredMinimum = inferRegularParcialMinimum(sourceText);
+    if (inferredMinimum != null) {
+      normalized.nota_min_regular_parciales = inferredMinimum;
+      missing.delete("nota_min_regular_parciales");
+    }
   }
 
   return {
